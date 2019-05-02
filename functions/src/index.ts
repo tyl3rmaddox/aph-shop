@@ -7,6 +7,42 @@ import {dialogflow, SimpleResponse, BasicCard, Button, Image} from 'actions-on-g
 
 const app = dialogflow({ debug: true });
 
+
+app.intent("Search Products", async (conv, params) => {
+    const anyEntity = await params.any
+    const data = await getProdSearchResults(anyEntity);
+
+    conv.ask(new SimpleResponse({
+        text: `${data.prodName[0]}, ${data.prodName[1]},  and ${data.prodName[2]}`,
+        speech: `Our products listed with the search term ${anyEntity} are ${data.prodName[0]}, ${data.prodName[1]}, and ${data.prodName[2]}. Would you like to learn more?`
+    }));
+})
+const prodSearchUrl1 = 'https://staging.aph.org/?s=';
+const prodSearchUrl2 = '&engine=product_search';
+
+async function getProdSearchResults(searchTerm:any) {
+    const page = await fetch(`${prodSearchUrl1}${searchTerm}${prodSearchUrl2}`);
+    const html = await page.text();
+    const $ = cheerio.load(html);
+    const prodName = new Array();
+    const prodUrl = new Array();
+    $('a.h6').each((i, elem) => {
+        const element = $(elem);
+        const text = element.text();
+        prodName.push(text);
+    })
+    $('a.h6').each((i, elem) => {
+        const element = $(elem);
+        const url = element.attr('href');
+        prodUrl.push(url);
+    })
+    return {
+        prodName,
+        prodUrl
+    }
+}
+
+
 app.intent('Get Featured Product', async (conv) => {
     const data = await scrapeFeaturedProducts();
     conv.ask(new SimpleResponse({
@@ -24,18 +60,18 @@ app.intent('Jupiter Portable Magnifier Info', async (conv) => {
     conv.close(new BasicCard ({
         title: 'Jupiter Portable Magnifier',
         image: new Image({
-            url: 'https://beta.aph.org/app/uploads/2019/02/APH-Shop-Pic-Home-Jupiter-Portable-Magnifier.jpg',
+            url: 'https://staging.aph.org/app/uploads/2019/02/APH-Shop-Pic-Home-Jupiter-Portable-Magnifier.jpg',
             alt: 'Jupiter Portable Magnifier'
         }),
         buttons: new Button({
             title: 'More Information',
-            url: 'https://beta.aph.org/introducing-jupiter-portable-magnifier/'
+            url: 'https://shop.aph.org/webapp/wcs/stores/servlet/ProductDisplay?catalogId=11051&langId=-1&productId=399670&storeId=10001&krypto=dEuYkPYOavBoZ2t5%2BFFVMvqFotBmbzxKNh6VsYgNaxpXIPazi6Vy076%2BGUPRznTpJfDBxcD6YYCHALFjhGFT7dCRpeBjzaYtoRYux1TQKkrksTc8871P4DlqjFVoEtjchf9iu5VPfS%2FVerZ02fgt0A%3D%3D&ddkey=http:ClickInfo'
         })
     }));
 })
 
 async function scrapeFeaturedProducts() {
-    const page = await fetch('https://beta.aph.org/shop/');
+    const page = await fetch('https://staging.aph.org/shop/');
     const html = await page.text();
     const $ = cheerio.load(html);
 
@@ -50,17 +86,5 @@ async function scrapeFeaturedProducts() {
         // description: firstDescription
     }
 }
-
-// async function scrapeHeroProduct() {
-//     const page = await fetch('https://beta.aph.org/introducing-jupiter-portable-magnifier/');
-//     const html = await page.text();
-//     const $ = cheerio.load(html);
-
-//     const info = $('#main > section > div > div.content > p:nth-child(1)').text();
-
-//     return {
-//         info: info
-//     }
-// }
 
 export const fulfillment = functions.https.onRequest(app);
